@@ -1,0 +1,26 @@
+{
+  "development": {
+    "username": "root",
+    "password": "Alexis2022",
+    "database": "practica_etsol_dev",
+    "host": "127.0.0.1",
+    "port": "3306",
+    "dialect": "mariadb"
+  },
+  "test": {
+    "username": "root",
+    "password": "Alexis2022",
+    "database": "practica_etsol_dev",
+    "host": "127.0.0.1",
+    "port": "3306",
+    "dialect": "mariadb"
+  },
+  "production": {
+    "username": "root",
+    "password": "Alexis2022",
+    "database": "practica_etsol",
+    "host": "127.0.0.1",
+    "port": "3306",
+    "dialect": "mariadb"
+  }
+}
