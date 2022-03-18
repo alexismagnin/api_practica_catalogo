@@ -19,6 +19,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Rol_politica',
+    tableName: 'roles_politicas'
   });
   return Rol_politica;
 };
