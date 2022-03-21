@@ -16,26 +16,27 @@ exports.getAll = (req, res) => {
         })
 }
 
-exports.delete = (req, res) => {
-    Rol.findOne({
-        where: { id: req.params.id }
-    })
-        .then ( rol => {
-            if (rol !== null) {
-                Rol.destroy({
-                    where: { id: req.params.id }
-                })
-                    .then( num => {
-                        return res.status(200).send("Se borraron "+ num +" registros")
+exports.delete = async (req, res) => {
+    try {
+        await Rol.findOne({
+            where: { id: req.params.id }
+        })
+            .then ( async rol => {
+                if (rol != null) {
+                    await Rol.destroy({
+                        where: { id: req.params.id }
                     })
-            } else {
-                throw {status: 404, message: "No se encontró el id del registro a borrar"}
-            }
-        })
-        .catch( error => {
-            if (error.status == null ) error.status = 500
-            return res.status(error.status).send(error.message)
-        })
+                        .then( num => {
+                            return res.status(200).send("Se borraron "+ num +" registros")
+                        })
+                } else {
+                    throw {status: 404, message: "No se encontró el id del registro a borrar"}
+                }
+            })
+    } catch (error) {
+        if (error.status == null ) error.status = 500
+        return res.status(error.status).send(error.message)
+    }
 }
 
 exports.add = async (req, res) => {

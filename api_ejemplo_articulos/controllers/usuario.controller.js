@@ -7,29 +7,27 @@ exports.getAll = (req, res) => {
     let jsonUsuarios = []
     let usuarios = []
     Usuario.findAll({
-        attributes: ["cuenta", "nombre", "rol_id"]
+        attributes: ["id", "cuenta", "nombre", "rol_id"] //no se pedía devolver id, pero yo lo agregué
     })
         .then( result => {
             usuarios = result
             Rol.findAll(
-                {attributes: ["id", ["rol", "nombre"]]},
-                {where: {id: result.rol_id}} )
+                {attributes: ["id", ["rol", "nombre"]]} )
             .then( roles => {
                 usuarios.forEach( u => { 
                     let usuario = {}
-                    let rolesUsuario = []
                     let encontrado = false
                     let i = 0
+                    usuario.id = u.id //no se pedía, pero yo lo agregué
                     usuario.cuenta = u.cuenta
                     usuario.nombre = u.nombre
                     while (!encontrado && i<roles.length) {
                         if (roles[i].id == u.rol_id) {
-                            rolesUsuario.push(roles[i])
+                            usuario.rol = roles[i]
                             encontrado = true
                         }
                         i++
                     }
-                    usuario.roles = rolesUsuario
                     jsonUsuarios.push(usuario)
                  })
                 return res.status(200).send(jsonUsuarios)
@@ -41,29 +39,6 @@ exports.getAll = (req, res) => {
         })
 }
 
-exports.getUserRoles = (req, res) => {
-    Usuario.findOne({ where: {id: req.params.id }})
-    .then( usuario => {
-        if (usuario) {
-            let roles = []
-            Rol.findOne(
-                {attributes: ["id", ["rol", "nombre"]]},
-                {where: {id: usuario.rol_id}}
-            ).then( rol => {
-                if (rol) roles.push(rol)
-                res.status(200).send(roles)
-            }) 
-        }
-        else {
-            throw { status: 404, message: "No se encontró usuario id="+req.params.id}
-        }
-    })
-    .catch( error => {
-        if (error.status == null ) error.status = 500
-            return res.status(error.status).send(error.message)
-    })
-}
-
 exports.add = async (req, res) => {
     try{
         // verificación de email
@@ -71,9 +46,10 @@ exports.add = async (req, res) => {
             throw {status: 400, message: "Formato de email no válido"}
         }
         //verificación de id correctos de roles
-        await verificarRoles(req.body.roles)
+        await verificarRol(req.body.rol_id)
         // Si no hay pass o si está vacía, se genera una automáticamente
-        {   let md5_pass
+        let md5_pass
+        {   
             if (req.body.pass && req.body.pass != ""){
                 md5_pass = crypto.createHash('md5').update(req.body.pass).digest('hex');
             } else {
@@ -84,7 +60,7 @@ exports.add = async (req, res) => {
             cuenta: req.body.cuenta,
             nombre: req.body.nombre,
             pass: md5_pass,
-            rol_id: req.body.roles[0]
+            rol_id: req.body.rol_id
         }).then( usuario =>{
             res.status(200).send(usuario.nombre+" fue creado con éxito (id= "+usuario.id+")")
         })
@@ -106,9 +82,9 @@ exports.update = async (req, res) => {
                 if (verificarEmail(req.body.cuenta)) cambios.cuenta = req.body.cuenta
                 else throw {status: 400, message: "Formato de email no válido"}
             //verificación de id correctos de roles
-            if (req.body.roles){
-                await verificarRoles(req.body.roles)
-                cambios.rol_id = req.body.roles[0]
+            if (req.body.rol_id){
+                await verificarRol(req.body.rol_id)
+                cambios.rol_id = req.body.rol_id
             }
             //verificacion de cambio de nombre
             if (req.body.nombre) cambios.nombre = req.body.nombre
@@ -130,6 +106,25 @@ exports.update = async (req, res) => {
     }
 }
 
+exports.delete = async (req, res) => {
+    try {
+        await Usuario.findOne({ where: {id: req.params.id}})
+        .then( async usuario => {
+            if (usuario != null) {
+                await Usuario.destroy({ where: {id: req.params.id}})
+                .then( num => {
+                    return res.status(200).send("Se borraron "+ num +" registros")
+                })
+            } else {
+                throw {status:404, message: "No se encontró usuario id="+req.params.id}
+            }
+        })
+    } catch (error) {
+        if (error.status == null ) error.status = 500
+        return res.status(error.status).send(error.message)
+    }
+}
+
 function verificarEmail(email){
     let isOk = false
     let e = new String(email)
@@ -145,32 +140,23 @@ function verificarEmail(email){
     return isOk
 }
 
-async function verificarRoles(arrayRoles){
-    let idRoles_ok = true
+async function verificarRol(rol_id){
+    let idRol_ok = true
     //verificación de id correctos de roles
     try{
         //Verifico que los datos pasados sean correctos
-        if (Array.isArray(arrayRoles)){
-            //Traigo todos los id de las roles
-            await Rol.findAll().then( roles => {
-                //Comparo los id pasados con los id de roles existentes
-                arrayRoles.forEach( r => {
-                    idRoles_ok = false
-                    for (i=0; (i < roles.length && !idRoles_ok); i++){
-                        if (roles[i].id == r){
-                            idRoles_ok = true
-                        }
-                    }
-                    //Si el id chequeado no se encuentra entre los existentes, se lanza error
-                    if (!idRoles_ok) {
-                        throw {status: 404, message: "No se encontró rol id="+r}
-                    }
+        if (Number.isInteger(rol_id)){
+            //Busco el rol, si el resultado no es nulo, se verifica que el id pertenece a un rol
+            await Rol.findOne({ where: {id: rol_id}})
+            .then( rol => {
+                if (rol != null) idRol_ok = true
+                //Si rol es null, el id chequeado no se encuentra entre los existentes y se lanza error
+                else throw {status: 404, message: "No se encontró rol id="+rol_id}
                 })
-            })
             //Si llega hasta acá es porque todos los ids son correctos
-            return idRoles_ok
+            return idRol_ok
         } else {
-            throw {status: 400, message: "Formato no válido en los id de roles"}
+            throw {status: 400, message: "Formato no válido de id"}
         }
     } catch (error) {
         if (error.status == null ) error.status = 500
